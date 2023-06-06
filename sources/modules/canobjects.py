@@ -36,7 +36,7 @@ class CANopenType(Enum):
     ERR_CTRL = 0x701,
     LSS = 0x7e4
 
-
+# 7.3.2.3 NMT state transitions table 38, 39
 CO_IDENTIFIER = {
     CANopenType.NMT :   (0,0),
     CANopenType.SYNC :  ( 0x80, 0x80 ),
@@ -203,20 +203,22 @@ class TimeMessage():
         return(self.text )
 
 
-class EmcyMessage():
+class EmcyMessage(): # 7.2.7.2 Emergency object services
     '''
     data: data bytes    
     '''
-    def __init__( self, data : bytes ):      
-        self.eec, self.er = unpack_from('<HB', data)            
-        self.text = f'EMCY eec:{self.eec:#x}, er:{self.er}'
-        if self.eec in EMCY_ERRORS:
-            self.text = self.text + ',' + EMCY_ERRORS.get(self.eec)
+    def __init__( self, dlc: int, data : bytes ):     
+        if dlc == 8: 
+            self.eec, self.er = unpack_from('<HB', data)            
+            self.text = f'EMCY eec:{self.eec:#x}, er:{self.er}'
+            if self.eec in EMCY_ERRORS:
+                self.text = self.text + ',' + EMCY_ERRORS.get(self.eec)
+            else:
+                ec = self.eec >> 8
+                if ec in EMCY_ERRORCODE_CLASSES:
+                    self.text = self.text + ',' + EMCY_ERRORCODE_CLASSES.get(ec)
         else:
-            ec = self.eec >> 8
-            if ec in EMCY_ERRORCODE_CLASSES:
-                self.text = self.text + ',' + EMCY_ERRORCODE_CLASSES.get(ec)
-
+            self.text = f'wrong EMCY'
 
 
     def __repr__(self):
@@ -230,7 +232,7 @@ class ErrCtrlMessage():
     '''
     data: data bytes    
     '''
-    def __init__( self, data : bytes ):      
+    def __init__( self, data : bytes ):  
         if len(data) == 1:
             s = data[0] & 0x7f
             self.state = { 0 : 'Boot-Up', 4 : 'Stopped', 5: 'Operational', 127 : 'Preoperational'}.get(s, 'unknown')
@@ -429,7 +431,7 @@ class CanOpenMessage:
             self.node = 0
             self.text = f'SYNC'
         elif self.canOpenObject == CANopenType.EMCY:         
-            self.text = EmcyMessage(data)
+            self.text = EmcyMessage(dlc, data)
         elif self.canOpenObject == CANopenType.TIME:
             self.node = 0
             self.text = str(TimeMessage(data))
