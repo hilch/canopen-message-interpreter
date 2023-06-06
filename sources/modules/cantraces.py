@@ -41,11 +41,14 @@ class CanTraceEntry():
 
     @property
     def dataBytes(self) -> bytes:
-        result = '['
-        for i, d in enumerate(self.data):
-            if i != 0 : result += ' '
-            result = result + format(d, '#04x')
-        return result + ']'
+        if self.data is None:
+            return ''
+        else:
+            result = '['
+            for i, d in enumerate(self.data):
+                if i != 0 : result += ' '
+                result = result + format(d, '#04x')
+            return result + ']'
     
     @property
     def canOpen(self) -> CanOpenMessage:
@@ -90,7 +93,7 @@ class CanTrace():
 
 class PCANViewTrace( CanTrace):
     patternFileVersion = re.compile(r'(\$FILEVERSION=1.1)')
-    patternEntry = re.compile(r'\s*(\d+)\x29\s*(\d+\.*\d*)\s*(Rx|Tx)\s*([0-9A-F]+)\s*([0-8])\s*([0-9A-F\s]{0,23})')
+    patternEntry = re.compile(r'\s*(\d+)\x29\s*(\d+\.*\d*)\s*(Rx|Tx)\s*([0-9A-F]+)\s*([0-8])\s*(.*)')
     patternData = re.compile(r'([0-9A-F]{2})')
 
     '''
@@ -110,13 +113,18 @@ class PCANViewTrace( CanTrace):
                 if matches:
                     m = matches[0]
                     n = int(m[0])
+                    load = m[5]
                     ms = float(m[1])
                     id = int(m[3],16)
                     dlc = int(m[4])
                     data = bytes()
-                    if dlc > 0:
+
+                    if load.startswith('RTR') :
+                        data = None
+                    else:
                         data = PCANViewTrace.patternData.findall(m[5])
                         data = bytes(int(d,16) for d in data)
+
                     self.entries.append( CanTraceEntry( number = n, milliseconds = ms, canId = id, dlc = dlc, data = data ) )
                  
             if len(self.entries) != 0 and fileVersionValid:

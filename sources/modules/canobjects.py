@@ -232,13 +232,15 @@ class ErrCtrlMessage():
     '''
     data: data bytes    
     '''
-    def __init__( self, data : bytes ):  
-        if len(data) == 1:
+    def __init__( self, data : bytes ): 
+        if data is None:
+            self.text = f'Node-Guarding Request (RTR)' 
+        elif len(data) == 1:
             s = data[0] & 0x7f
             self.state = { 0 : 'Boot-Up', 4 : 'Stopped', 5: 'Operational', 127 : 'Preoperational'}.get(s, 'unknown')
             self.text = f'Heartbeat: {self.state}'
         else:
-            self.text = f'Node-Guarding'
+            self.text = f'wrong Node-Guarding'
 
     def __repr__(self):
         return('ErrCtrlMessage: ' + self.text )
@@ -416,7 +418,7 @@ class CanOpenMessage:
         self.number = number
         self.node = 0
         self.index = 0
-        self.subindex = 0        
+        self.subindex = 0     
 
         for key, value in CO_IDENTIFIER.items():
             if( id >= value[0] and id <= value[1] ):
