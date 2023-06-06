@@ -13,48 +13,33 @@
 #    You should have received a copy of the GNU General Public License
 #    along with canopen-message-interpreter.  If not, see <http://www.gnu.org/licenses/>.
 
-from enum import Enum
+
+# definitions from CiA 301 V4.2.0 21 February 2011
+
+from enum import Enum, unique
 from struct import unpack_from
 import datetime
 
-class CANopenType(Enum):
-    NONE = 0xffff,
-    NMT = 0,
-    SYNC = 0x80,
-    EMCY = 0x81,
-    TIME = 0x100,
-    PDO1_T = 0x181,
-    PDO1_R = 0x201,
-    PDO2_T = 0x281,
-    PDO2_R = 0x301,
-    PDO3_T = 0x381,
-    PDO3_R = 0x401,
-    PDO4_T = 0x481,
-    PDO4_R = 0x501,
-    SDO_T = 0x581,
-    SDO_R = 0x601,
-    ERR_CTRL = 0x701,
-    LSS = 0x7e4
-
 # 7.3.2.3 NMT state transitions table 38, 39
-CO_IDENTIFIER = {
-    CANopenType.NMT :   (0,0),
-    CANopenType.SYNC :  ( 0x80, 0x80 ),
-    CANopenType.EMCY :  ( 0x81, 0xff ),    
-    CANopenType.TIME :  ( 0x100,0x100 ),
-    CANopenType.PDO1_T : ( 0x181, 0x1ff ),
-    CANopenType.PDO1_R : ( 0x201, 0x27f ),            
-    CANopenType.PDO2_T : ( 0x281, 0x2ff ),
-    CANopenType.PDO2_R : ( 0x301, 0x37f ),            
-    CANopenType.PDO3_T : ( 0x381, 0x3ff ),
-    CANopenType.PDO3_R : ( 0x401, 0x47f ),            
-    CANopenType.PDO4_T : ( 0x481, 0x4ff ),
-    CANopenType.PDO4_R : ( 0x501, 0x57f),            
-    CANopenType.SDO_T : ( 0x581, 0x5ff ),
-    CANopenType.SDO_R : ( 0x601, 0x67f ),            
-    CANopenType.ERR_CTRL : (0x701, 0x77f),
-    CANopenType.LSS : ( 0x7e4, 0x7e5) 
-}
+@unique
+class CANopenType(Enum):
+    NMT = 0b0000
+    EMCY = 0b0001 # EMCY and SYNC
+    TIME = 0b0010
+    PDO1_T = 0b0011
+    PDO1_R = 0b0100
+    PDO2_T = 0b0101
+    PDO2_R = 0b0110
+    PDO3_T = 0b0111
+    PDO3_R = 0b1000
+    PDO4_T = 0b1001
+    PDO4_R = 0b1010
+    SDO_T = 0b1011
+    SDO_R = 0b1100
+    ERR_CTRL = 0b1110
+    NONE = 0b1111
+
+
 
 
 EMCY_ERRORCODE_CLASSES = { # 7.2.7.1 Emergency object usage
@@ -412,30 +397,24 @@ class SdoMessage():
 
 
 
+
 class CanOpenMessage:
     def __init__(self, number : int, millis : int, id : int, dlc : int, data : bytes ):
         self.canOpenObject = CANopenType.NONE
         self.number = number
-        self.node = 0
+        self.node = id & 0b1111111
         self.index = 0
-        self.subindex = 0     
+        self.subindex = 0   
+        self.canOpenObject = CANopenType( (id & 0b11110000000) >> 7 )
 
-        for key, value in CO_IDENTIFIER.items():
-            if( id >= value[0] and id <= value[1] ):
-                self.node = id - value[0] + 1
-                self.canOpenObject = key
-                break
         if self.canOpenObject == CANopenType.NMT:
             nmt = NmtMessage(data)
-            self.node = nmt.node
             self.text = str(nmt)
-        elif self.canOpenObject == CANopenType.SYNC:
-            self.node = 0
+        elif self.canOpenObject == CANopenType.EMCY and self.node == 0:
             self.text = f'SYNC'
         elif self.canOpenObject == CANopenType.EMCY:         
             self.text = EmcyMessage(dlc, data)
-        elif self.canOpenObject == CANopenType.TIME:
-            self.node = 0
+        elif self.canOpenObject == CANopenType.TIME and self.node == 0:
             self.text = str(TimeMessage(data))
         elif self.canOpenObject == CANopenType.PDO1_T:
             self.text = f'Transmit PDO1'
@@ -465,10 +444,8 @@ class CanOpenMessage:
             self.subindex = sdo.subindex
         elif self.canOpenObject == CANopenType.ERR_CTRL and dlc == 1:
             self.text = str(ErrCtrlMessage(data))
-        elif self.canOpenObject == CANopenType.LSS:
-            self.node = 0
-            self.text = f'LSS'
         else:
+            self.canOpenObject = CANopenType.NONE
             self.text = '' # no CanOpen Message
         
  
