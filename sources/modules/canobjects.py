@@ -146,19 +146,20 @@ SDO_ABORT_CODES = {
 
 
 
+
 class NmtMessage():
     '''
     data: data bytes    
     '''
     def __init__( self, data : bytes ):     
-        cs, self.node = unpack_from('<BB', data)
+        cs, self.nodeNumber = unpack_from('<BB', data)
         service = { 1: 'Start', 
                     2: 'Stop', 
                     128: 'Enter Preoperational', 
                     129: 'Reset',
                     130: 'Reset communication'
                     }.get(cs, 'unknown service')
-        if self.node == 0:
+        if self.nodeNumber == 0:
             self.text = f'NMT {service} all nodes'
         else:
             self.text = f'NMT {service}'
@@ -214,16 +215,24 @@ class EmcyMessage(): # 7.2.7.2 Emergency object services
 
 
 class ErrCtrlMessage():
+    heartbeats = dict()
+
     '''
     data: data bytes    
     '''
-    def __init__( self, data : bytes ): 
+    def __init__( self, data : bytes, nodeNumber : int, millis : int  ): 
         if data is None:
             self.text = f'Node-Guarding Request (RTR)' 
         elif len(data) == 1:
             s = data[0] & 0x7f
             self.state = { 0 : 'Boot-Up', 4 : 'Stopped', 5: 'Operational', 127 : 'Preoperational'}.get(s, 'unknown')
-            self.text = f'Heartbeat: {self.state}'
+            previousHeartbeat = self.__class__.heartbeats.get( nodeNumber, -1 )
+            if previousHeartbeat >= 0:
+                self.text = f'Heartbeat: {self.state} ({millis-previousHeartbeat:0.1f} ms)'                
+            else:
+                self.text = f'Heartbeat: {self.state}'
+            self.__class__.heartbeats.update( { nodeNumber : millis })
+            s = s
         else:
             self.text = f'wrong Node-Guarding'
 
@@ -399,23 +408,24 @@ class SdoMessage():
 
 
 class CanOpenMessage:
+
     def __init__(self, number : int, millis : int, id : int, dlc : int, data : bytes ):
         self.canOpenObject = CANopenType.NONE
         self.number = number
-        self.node = id & 0b1111111
+        self.nodeNumber = id & 0b1111111
         self.index = 0
         self.subindex = 0   
         self.canOpenObject = CANopenType( (id & 0b11110000000) >> 7 )
 
         if self.canOpenObject == CANopenType.NMT:
             nmt = NmtMessage(data)
-            self.node = nmt.node # node information comes from inside data
+            self.nodeNumber = nmt.nodeNumber # node information comes from inside data
             self.text = str(nmt)
-        elif self.canOpenObject == CANopenType.EMCY and self.node == 0: # SYNC from master
+        elif self.canOpenObject == CANopenType.EMCY and self.nodeNumber == 0: # SYNC from master
             self.text = f'SYNC'
         elif self.canOpenObject == CANopenType.EMCY: # EMCY from node
             self.text = EmcyMessage(dlc, data)
-        elif self.canOpenObject == CANopenType.TIME and self.node == 0:
+        elif self.canOpenObject == CANopenType.TIME and self.nodeNumber == 0:
             self.text = str(TimeMessage(data))
         elif self.canOpenObject == CANopenType.PDO1_T:
             self.text = f'Transmit PDO1'
@@ -444,7 +454,7 @@ class CanOpenMessage:
             self.index = sdo.index
             self.subindex = sdo.subindex
         elif self.canOpenObject == CANopenType.ERR_CTRL and dlc == 1:
-            self.text = str(ErrCtrlMessage(data))
+            self.text = str(ErrCtrlMessage( data = data, nodeNumber = self.nodeNumber, millis = millis ))
         else:
             self.canOpenObject = CANopenType.NONE
             self.text = '' # no CanOpen Message

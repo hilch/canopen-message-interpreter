@@ -84,7 +84,7 @@ class CanTrace():
                                 e.dlc,
                                 e.dataBytes,
                                 interpreted.canOpenObject.name,
-                                interpreted.node if interpreted.node > 0 else '-',
+                                interpreted.nodeNumber if interpreted.nodeNumber > 0 else '-',
                                 format( interpreted.index, '#06x' ) if interpreted.index > 0 else '-',
                                 interpreted.subindex if interpreted.index > 0 else '-',
                                 interpreted.text  ] )
