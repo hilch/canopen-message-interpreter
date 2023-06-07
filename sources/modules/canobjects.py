@@ -409,10 +409,11 @@ class CanOpenMessage:
 
         if self.canOpenObject == CANopenType.NMT:
             nmt = NmtMessage(data)
+            self.node = nmt.node # node information comes from inside data
             self.text = str(nmt)
-        elif self.canOpenObject == CANopenType.EMCY and self.node == 0:
+        elif self.canOpenObject == CANopenType.EMCY and self.node == 0: # SYNC from master
             self.text = f'SYNC'
-        elif self.canOpenObject == CANopenType.EMCY:         
+        elif self.canOpenObject == CANopenType.EMCY: # EMCY from node
             self.text = EmcyMessage(dlc, data)
         elif self.canOpenObject == CANopenType.TIME and self.node == 0:
             self.text = str(TimeMessage(data))
