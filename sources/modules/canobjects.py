@@ -388,6 +388,7 @@ class SdoMessage():
             elif cs & 0x80: # 7.2.4.3.14 Protocol SDO block upload sub-block
                 self.text = 'server: block upload sub-block'              
 
+
     def formatData(self, data : bytes ):
         s = str(data).removeprefix("b'")
         s = s.removesuffix("'")
@@ -395,8 +396,43 @@ class SdoMessage():
         for i, d in enumerate( data):
             if i != 0 : result += ' '
             result = result + format(d, '#04x')
-        result = result + '] = [' + s + ']'
+        result += '] --> '
+        if self.index == 0x1000 and self.subindex == 0:
+            deviceProfileNumber, additionalInformation = unpack_from( '<HH', data )
+            result += f'DeviceType: Device Profile Number = {deviceProfileNumber}, Additional Informat = {additionalInformation}'
+        elif self.index == 0x100d and self.subindex == 0:
+            lifeTimeFactor = int(data[0])
+            result += f'Life time factor = {lifeTimeFactor}'
+        elif self.index == 0x1013 and self.subindex == 0:
+            value = unpack_from( '<L', data )[0]
+            result += f'High Resolution Timestamp = {value} µs'
+        elif self.index == 0x1014 and self.subindex == 0:
+            value = unpack_from( '<L', data )[0]
+            canid = value & 0x1ffffff
+            extended = bool( value & 0x20000000)
+            valid = 'valid' if bool( value & 0x80000000) else 'not valid'
+            if extended:  # 29-bit          
+                result = result + f'COB-ID EMCY = {canid:#09x} ({valid})'
+            else: # 11-bit
+                result = result + f'COB-ID EMCY = {canid:#06x} ({valid})'                
+        elif self.index == 0x1015 and self.subindex == 0:
+                inhibitTime = unpack_from( '<L', data )[0]
+                inhibitTime = (inhibitTime * 100) / 1000
+                result += f'Inhibit time EMCY is set to {inhibitTime} ms'
+        elif self.index == 0x1016:
+            if self.subindex == 0:
+                highestSubIndex = unpack_from( '<L', data )[0]
+                result += f'Consumer Heartbeat Time: highest sub-index supported = {highestSubIndex}'
+            elif self.subindex > 0:
+                heartbeatTime, nodeid, reserved = unpack_from( '<HBB', data )
+                result += f'Consumer Heartbeat Time of node {nodeid} is set to {heartbeatTime} ms'
+        elif self.index == 0x1017 and self.subindex == 0:
+                producerHeartbeat = unpack_from( '<H', data )[0]
+                result += f'Producer Heartbeat Time is set to {producerHeartbeat} ms'
+        else:
+            result += '[' + s + ']'
         return result
+
 
     def __repr__(self):
         return('SdoMessage: ' + self.text + f' - Object: {self.index:#x}/{self.subindex:x}')
