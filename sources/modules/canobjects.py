@@ -151,19 +151,23 @@ class NmtMessage():
     '''
     data: data bytes    
     '''
-    def __init__( self, data : bytes ):     
-        cs, self.nodeNumber = unpack_from('<BB', data)
-        service = { 1: 'Start', 
-                    2: 'Stop', 
-                    128: 'Enter Preoperational', 
-                    129: 'Reset',
-                    130: 'Reset communication'
-                    }.get(cs, 'unknown service')
-        if self.nodeNumber == 0:
-            self.text = f'NMT {service} all nodes'
-        else:
-            self.text = f'NMT {service}'
+    def __init__( self, data : bytes ):   
+        try:  
+            cs, self.nodeNumber = unpack_from('<BB', data)
 
+            service = { 1: 'Start', 
+                        2: 'Stop', 
+                        128: 'Enter Preoperational', 
+                        129: 'Reset',
+                        130: 'Reset communication'
+                        }.get(cs, 'unknown service')
+            if self.nodeNumber == 0:
+                self.text = f'NMT {service} all nodes'
+            else:
+                self.text = f'NMT {service}'
+        except Exception as e:
+            self.nodeNumber = 0
+            self.text = f'NMT - unknown service'
 
     def __repr__(self):
         return('NmtMessage: ' + self.text )
