@@ -58,7 +58,8 @@ class CanTraceEntry():
 class CanTrace():
     class CanTraceType(Enum):
         UNKNOWN = 0,
-        PCANVIEW1_1 = 1 
+        PCANVIEW1 = 1 
+        PCANVIEW2 = 2
 
     class CSVDialect(Enum):
         EXCEL_DIALECT1 = 1 # delimiter= ';', quotechar="'"
@@ -92,8 +93,9 @@ class CanTrace():
 
 
 class PCANViewTrace( CanTrace):
-    patternFileVersion = re.compile(r'(\$FILEVERSION=1.1)')
-    patternEntry = re.compile(r'\s*(\d+)\x29\s*(\d+\.*\d*)\s*(Rx|Tx)\s*([0-9A-F]+)\s*([0-8])\s*(.*)')
+    patternFileVersion = re.compile(r'(\$FILEVERSION=)(\d)\.(\d)')
+    patternEntryV1 = re.compile(r'\s*(\d+)\x29\s*(\d+\.*\d*)\s*(Rx|Tx)\s*([0-9A-F]+)\s*([0-8])\s*(.*)')
+    patternEntryV2 = re.compile(r'\s*(\d+)\s*(\d+\.*\d*)\s*([A-Z]{2})\s*(\d)\s*([0-9A-F]+)\s*(Rx|Tx)\s*-\s*([0-8])\s*\s*(.*)')
     patternData = re.compile(r'([0-9A-F]{2})')
 
     '''
@@ -102,30 +104,55 @@ class PCANViewTrace( CanTrace):
     def __init__(self, filename ): 
         super().__init__()
         with open(filename, 'r') as f:
-            fileVersionValid = False
+            self.canTraceTyp = __class__.CanTraceType.UNKNOWN
             content = f.readlines()
             for r in content:
-                if not fileVersionValid:
+                if self.canTraceTyp == __class__.CanTraceType.UNKNOWN:
                     matches = PCANViewTrace.patternFileVersion.findall(r)
                     if matches:
-                        fileVersionValid = True
-                matches = PCANViewTrace.patternEntry.findall(r)
-                if matches:
-                    m = matches[0]
-                    n = int(m[0])
-                    load = m[5]
-                    ms = float(m[1])
-                    id = int(m[3],16)
-                    dlc = int(m[4])
-                    data = bytes()
+                        if matches[0][1] == '1':
+                            self.canTraceTyp = __class__.CanTraceType.PCANVIEW1
+                        elif matches[0][1] == '2':
+                            self.canTraceTyp = __class__.CanTraceType.PCANVIEW2
 
-                    if load.startswith('RTR') :
-                        data = None
-                    else:
-                        data = PCANViewTrace.patternData.findall(m[5])
-                        data = bytes(int(d,16) for d in data)
+                if self.canTraceTyp == __class__.CanTraceType.PCANVIEW1:
+                    matches = __class__.patternEntryV1.findall(r)
+                    if matches:
+                        m = matches[0]
+                        n = int(m[0]) # message number
+                        ms = float(m[1]) # milliseconds
+                        rxtx = m[2]
+                        id = int(m[3],16) # CAN id
+                        dlc = int(m[4]) # DLC
+                        load = m[5] # data load                        
+                        data = bytes()
 
-                    self.entries.append( CanTraceEntry( number = n, milliseconds = ms, canId = id, dlc = dlc, data = data ) )
-                 
-            if len(self.entries) != 0 and fileVersionValid:
-                self.canTraceType = CanTrace.CanTraceType.PCANVIEW1_1
+                        if load.startswith('RTR') :
+                            data = None
+                        else:
+                            data = PCANViewTrace.patternData.findall(load)
+                            data = bytes(int(d,16) for d in data)
+
+                        self.entries.append( CanTraceEntry( number = n, milliseconds = ms, canId = id, dlc = dlc, data = data ) )
+
+                elif self.canTraceTyp == __class__.CanTraceType.PCANVIEW2:
+                    matches = __class__.patternEntryV2.findall(r)
+                    if matches:
+                        m = matches[0]
+                        n = int(m[0]) # message number
+                        ms = float(m[1]) # milliseconds
+                        typ = m[2] ## DT or RR
+                        bus = int(m[3]) # bus number
+                        id = int(m[4],16) # CAN id
+                        rxtx = m[5]
+                        dlc = int(m[6]) # DLC
+                        load = m[7]                         
+                        data = bytes()
+                        if typ == 'RR' : # RTR
+                            data = None
+                        else:
+                            data = PCANViewTrace.patternData.findall(load)
+                            data = bytes(int(d,16) for d in data)
+
+                        self.entries.append( CanTraceEntry( number = n, milliseconds = ms, canId = id, dlc = dlc, data = data ) )                 
+
