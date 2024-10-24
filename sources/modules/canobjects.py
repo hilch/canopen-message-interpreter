@@ -39,8 +39,21 @@ class CANopenType(Enum):
     ERR_CTRL = 0b1110
     NONE = 0b1111
 
-
-
+# map EDS type codes (in 'DataType' property) to python struct types
+EDS_OBJECT_TYPES_TO_STRUCT = {
+    # int8
+    0x2 : 'b',
+    # int16
+    0x3: 'h',
+    # int32
+    0x4: 'i',
+    # uint8
+    0x5: 'B',
+    # uint16
+    0x6 : 'H',
+    # uint32
+    0x7: 'I',
+}
 
 EMCY_ERRORCODE_CLASSES = { # 7.2.7.1 Emergency object usage
     0x00 : 'Error reset or no error',
@@ -253,9 +266,16 @@ class SdoMessage():
     data: data bytes
     client: message sent by client (True) or by data provider = server (False)
     '''
-    def __init__( self, data : bytes, client : bool ):  
+    # key used in an EDS for the string name of an SDO parameter
+    EDS_SDO_NAME_KEY = "ParameterName"
+    EDS_SDO_TYPE_KEY = "DataType"
+
+    def __init__( self, data : bytes, client : bool, eds_dict: dict ):  
         self.index = 0
         self.subindex = 0
+        self.sdo_name = None
+        self.sdo_value = None
+        self.sdo_value_hex = None
         cs = (unpack_from( '<B', data )[0] & 0b11100000) >> 5 # command specifier
 
         if client:
@@ -390,8 +410,8 @@ class SdoMessage():
             elif cs == 7:
                 self.text = '' 
             elif cs & 0x80: # 7.2.4.3.14 Protocol SDO block upload sub-block
-                self.text = 'server: block upload sub-block'              
-
+                self.text = 'server: block upload sub-block'
+        self.find_sdo_eds_details(eds_dict, data)
 
     def formatData(self, data : bytes ):
         s = str(data).removeprefix("b'")
@@ -437,6 +457,31 @@ class SdoMessage():
             result += '[' + s + ']'
         return result
 
+    def find_sdo_eds_details(self, eds_dict: dict, data: bytes):
+        """
+        if an eds is available use it to fill in more details about the SDO
+        """
+        if self.index == 0:
+            return
+        # check for an entry in the eds of this index+subindex
+        eds_entry_name = f"{self.index:X}sub{self.subindex}"
+        # print(f"Check for entry: '{eds_entry_name}'")
+        if eds_entry_name not in eds_dict and self.subindex == 0:
+            eds_entry_name = f"{self.index:X}"
+            # print(f"Check for entry: '{eds_entry_name}'")
+            if eds_entry_name not in eds_dict:
+                return
+
+        # found an entry in the eds for this SDO
+        if self.EDS_SDO_NAME_KEY in eds_dict[eds_entry_name]:
+            self.sdo_name = eds_dict[eds_entry_name][self.EDS_SDO_NAME_KEY]
+
+        if self.EDS_SDO_TYPE_KEY in eds_dict[eds_entry_name] and int(eds_dict[eds_entry_name][self.EDS_SDO_TYPE_KEY], base=16) in EDS_OBJECT_TYPES_TO_STRUCT:
+            # interpret the value based on the messages data type
+            self.sdo_value = unpack_from(f'<{EDS_OBJECT_TYPES_TO_STRUCT[int(eds_dict[eds_entry_name][self.EDS_SDO_TYPE_KEY], base=16)]}', data[4:])[0]
+            self.sdo_value_hex = str(hex(self.sdo_value))
+        else:
+            print(f"this aint in our map: { eds_dict[eds_entry_name][self.EDS_SDO_TYPE_KEY]}")
 
     def __repr__(self):
         return('SdoMessage: ' + self.text + f' - Object: {self.index:#x}/{self.subindex:x}')
@@ -449,7 +494,7 @@ class SdoMessage():
 
 class CanOpenMessage:
 
-    def __init__(self, number : int, millis : int, id : int, dlc : int, data : bytes ):
+    def __init__(self, number : int, millis : int, id : int, dlc : int, data : bytes, eds_dict: dict):
         self.canOpenObject = CANopenType.NONE
         self.number = number
         self.nodeNumber = id & 0b1111111
@@ -484,15 +529,28 @@ class CanOpenMessage:
         elif self.canOpenObject == CANopenType.PDO4_R:
             self.text = f'Receive PDO4'
         elif self.canOpenObject == CANopenType.SDO_R and dlc == 8:
-            sdo = SdoMessage( data, True)
+            sdo = SdoMessage( data, True, eds_dict)
             self.text = sdo.text
             self.index = sdo.index
             self.subindex = sdo.subindex
+            if sdo.sdo_name is not None:
+                self.sdo_name = sdo.sdo_name
+            if sdo.sdo_value is not None:
+                self.sdo_value = sdo.sdo_value
+            if sdo.sdo_value_hex is not None:
+                self.sdo_value_hex = sdo.sdo_value_hex
+
         elif self.canOpenObject == CANopenType.SDO_T and dlc == 8:
-            sdo = SdoMessage( data, False)
+            sdo = SdoMessage( data, False, eds_dict)
             self.text = sdo.text
             self.index = sdo.index
             self.subindex = sdo.subindex
+            if sdo.sdo_name is not None:
+                self.sdo_name = sdo.sdo_name
+            if sdo.sdo_value is not None:
+                self.sdo_value = sdo.sdo_value
+            if sdo.sdo_value_hex is not None:
+                self.sdo_value_hex = sdo.sdo_value_hex
         elif self.canOpenObject == CANopenType.ERR_CTRL and dlc == 1:
             self.text = str(ErrCtrlMessage( data = data, nodeNumber = self.nodeNumber, millis = millis ))
         else:

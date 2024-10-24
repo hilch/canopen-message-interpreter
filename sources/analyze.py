@@ -17,23 +17,47 @@
 
 import argparse
 from modules.cantraces import PCANViewTrace
+from pathlib import Path
+import os
 
-                   
-                         
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--source", help = "trace file (*.*)", required= True )
-    parser.add_argument("-o", "--output", help = "output file (*.csv)")
-    parser.add_argument('-f', "--format", choices = ['pcan'], help = "trace format type ('pcan')", required= True )
+    parser.add_argument("-s", "--source", help="trace file (*.*)", required=True)
+    parser.add_argument(
+        "-o", "--output", help="output file (*.csv)", required=False, default=None
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        choices=["pcan"],
+        help="trace format type ('pcan')",
+        default="pcan",
+    )
+    parser.add_argument(
+        "-e",
+        "--eds",
+        required=False,
+        help="EDS file to better interpret SDO messages",
+        default=None,
+    )
     try:
         args = parser.parse_args()
         if args.source:
-            if args.format == 'pcan':
-                trace = PCANViewTrace( args.source )                
-                
-            if args.output:
-                trace.toCSV( args.output )
-             
+            if args.format == "pcan":
+                trace = PCANViewTrace(args.source, args.eds)
+
+            out = args.output
+            if out is None:
+                out = (
+                    Path(os.getcwd())
+                    / Path(args.source).parent
+                    / Path(Path(args.source).stem + ".csv")
+                )
+            print(f"Output to: {out}")
+
+            trace.toCSV(out)
+
     except argparse.ArgumentError:
         print("wrong or missing arguments")
     except SystemExit:
