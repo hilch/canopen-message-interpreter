@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69", "wheel", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "canopen_msg_interpreter"
+authors = [
+    { name = "Christoph Hilchenbach", email = "11504129+hilch@users.noreply.github.com" },
+    { name = "len0rd", email = "len0rd@users.noreply.github.com" },
+]
+description = "CANopen Log Interpreter. Convert TRC canbus logs to a csv describing detected CANopen messages"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = []
+dynamic = ["version"]
+
+[tool.setuptools]
+packages = ["canopen_msg_interpreter"]

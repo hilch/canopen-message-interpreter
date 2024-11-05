@@ -16,9 +16,30 @@
 
 
 import argparse
-from modules.cantraces import PCANViewTrace
+from canopen_msg_interpreter.cantraces import PCANViewTrace
 from pathlib import Path
 import os
+
+
+def analyze(
+    source_file,
+    eds_file=None,
+    outfile=None,
+    source_format="pcan",
+):
+    if source_format == "pcan":
+        trace = PCANViewTrace(source_file, eds_file)
+
+    out = outfile
+    if out is None:
+        out = (
+            Path(os.getcwd())
+            / Path(source_file).parent
+            / Path(Path(source_file).stem + ".csv")
+        )
+    print(f"Output CANopen CSV analysis to: {out}")
+
+    trace.toCSV(out)
 
 
 if __name__ == "__main__":
@@ -41,24 +62,5 @@ if __name__ == "__main__":
         help="EDS file to better interpret SDO messages",
         default=None,
     )
-    try:
-        args = parser.parse_args()
-        if args.source:
-            if args.format == "pcan":
-                trace = PCANViewTrace(args.source, args.eds)
-
-            out = args.output
-            if out is None:
-                out = (
-                    Path(os.getcwd())
-                    / Path(args.source).parent
-                    / Path(Path(args.source).stem + ".csv")
-                )
-            print(f"Output to: {out}")
-
-            trace.toCSV(out)
-
-    except argparse.ArgumentError:
-        print("wrong or missing arguments")
-    except SystemExit:
-        pass
+    args = parser.parse_args()
+    analyze(args.source, args.eds, args.output, args.format)

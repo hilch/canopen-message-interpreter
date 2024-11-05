@@ -17,7 +17,7 @@ from enum import Enum
 import re
 import csv
 import locale
-from modules.canobjects import *
+from canopen_msg_interpreter.canobjects import *
 import configparser
 
 locale.setlocale(locale.LC_ALL, "")
