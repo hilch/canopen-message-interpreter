@@ -58,8 +58,9 @@ class CanTraceEntry():
 class CanTrace():
     class CanTraceType(Enum):
         UNKNOWN = 0,
-        PCANVIEW1 = 1 
-        PCANVIEW2 = 2
+        PCANVIEW1 = 1 # tested PCAN-View Fileversion 1.1
+        PCANVIEW2 = 2 # tested PCAN-View Fileversion 2.1
+        IXXAT_MINIMON3 = 3 # tested IXXAT MiniMon V3
 
     class CSVDialect(Enum):
         EXCEL_DIALECT1 = 1 # delimiter= ';', quotechar="'"
@@ -156,3 +157,56 @@ class PCANViewTrace( CanTrace):
 
                         self.entries.append( CanTraceEntry( number = n, milliseconds = ms, canId = id, dlc = dlc, data = data ) )                 
 
+
+class IXXATTrace( CanTrace):
+    patternFileVersion = re.compile(r'(ASCII Trace IXXAT MiniMon V3)\s*(Version:)\s*(\d+\.\d+\.\d+\.\d+)')
+    patternEntry = re.compile(r'"(\d{2}):(\d{2}):(\d{2}\.\d*)";"(\d{1,3})";"(\w*)";"([\w\s]*)";"([\w\s=]*)"')
+    patternData = re.compile(r'([0-9A-F]{2})')
+    patternRTR = re.compile(r'Remote request\s*DLC\s*=\s*(\d)')
+
+    '''
+    > filename: trace file name (*.CSV)
+    '''
+    def __init__(self, filename ): 
+        super().__init__()
+        n = 0 # message number
+        with open(filename, 'r') as f:
+            self.canTraceTyp = __class__.CanTraceType.UNKNOWN
+            content = f.readlines()
+            for r in content:
+                if self.canTraceTyp == __class__.CanTraceType.UNKNOWN:
+                    matches = __class__.patternFileVersion.findall(r)
+                    if matches:
+                        self.canTraceTyp = __class__.CanTraceType.IXXAT_MINIMON3
+                        pass
+                if self.canTraceTyp == __class__.CanTraceType.IXXAT_MINIMON3:
+                    matches = __class__.patternEntry.findall(r)
+                    if matches:
+                        n = n + 1
+                        m = matches[0]
+                        hour = int(m[0])
+                        minute = int(m[1])
+                        seconds = float(m[2])
+                        ms = (hour * 3600 + minute * 60 + seconds) * 1000
+                        id = int(m[3],16)
+                        format = m[4] # 'Std' or 'Ext' ?`
+                        flags = m[5] # 'Rtr' or ?
+                        load = m[6] # data load or RTR information
+                        data = bytes
+                        dlc = 0
+
+                        if 'Rtr' in flags:
+                            data = None
+                            dlc = int( __class__.patternRTR.findall(load)[0] )
+                        else:
+                            data = __class__.patternData.findall(load)
+                            data = bytes(int(d,16) for d in data)
+                            dlc = len(data)
+
+                        if n == 571:
+                            pass
+                        self.entries.append( CanTraceEntry( number = n, milliseconds = ms, canId = id, dlc = dlc, data = data ) )
+
+          
+
+        

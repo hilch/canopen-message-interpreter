@@ -208,7 +208,7 @@ class EmcyMessage(): # 7.2.7.2 Emergency object services
                 if ec in EMCY_ERRORCODE_CLASSES:
                     self.text = self.text + ',' + EMCY_ERRORCODE_CLASSES.get(ec)
         else:
-            self.text = f'wrong EMCY'
+            self.text = f'wrong EMCY with DLC={dlc}'
 
 
     def __repr__(self):
