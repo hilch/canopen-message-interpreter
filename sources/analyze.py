@@ -16,25 +16,23 @@
 
 
 import argparse
-from modules.cantraces import PCANViewTrace, IXXATTrace
+from modules.cantraces import OpenTraceFile
 
                    
-                         
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--source", help = "trace file (*.*)", required= True )
     parser.add_argument("-o", "--output", help = "output file (*.csv)")
-    parser.add_argument('-f', "--format", choices = ['pcan', 'ixxat'], help = "trace format type ('pcan')", required= True )
     try:
         args = parser.parse_args()
+
         if args.source:
-            if args.format == 'pcan':
-                trace = PCANViewTrace( args.source )         
-            elif args.format == 'ixxat':
-                trace = IXXATTrace( args.source )                         
-                
-            if args.output:
-                trace.toCSV( args.output )
+            trace = OpenTraceFile( args.source )                
+            if trace:
+                if args.output:
+                    trace.toCSV( args.output )
+                else:
+                    trace.toCSV( args.source + '.csv' )
              
     except argparse.ArgumentError:
         print("wrong or missing arguments")

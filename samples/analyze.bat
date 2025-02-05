@@ -2,10 +2,12 @@ set SCRIPT=..\sources\analyze.py
 set FILE1="pcan1"
 set FILE2="pcan2"
 set FILE3="pcan3"
+set FILE4="ixxat1"
 
-py %SCRIPT% -s %FILE1%.trc -o %FILE1%.csv -f pcan
-py %SCRIPT% -s %FILE2%.trc -o %FILE2%.csv -f pcan
-py %SCRIPT% -s %FILE3%.trc -o %FILE3%.csv -f pcan
+py %SCRIPT% -s %FILE1%.trc
+py %SCRIPT% -s %FILE2%.trc
+py %SCRIPT% -s %FILE3%.trc
+py %SCRIPT% -s %FILE4%.trc
 
 timeout 4
 
