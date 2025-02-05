@@ -18,6 +18,12 @@ I did not found any free tools to interpret CANopen at all. And even (expensive)
 
 So this (incomplete and non perfect) tool might help.
 
+Currently supported file formats:
+- PCAN- View 1.1
+- PCAN- Veiw 2.1
+- IXXAT MiniMon V3
+  
+
 # Usage
 
 ```
@@ -31,8 +37,6 @@ options:
                         trace file (*.*)
   -o OUTPUT, --output OUTPUT
                         output file (*.csv)
-  -f {pcan}, --format {pcan}
-                        trace format type ('pcan')
 ```
 ## --source
 
@@ -42,10 +46,8 @@ CAN trace file.
 ## --output
 
 output file.
-(currently only CSV with ';' as separator is supported)
-
-## --format
-- pcan : [PCAN-View](https://www.peak-system.com/) *.trc files (currently only V1.1 is supported)
+(currently only CSV with ';' as separator is supported).
+If paramater is omitted the source file name with appended extension is taken.
 
 ## Example
 
