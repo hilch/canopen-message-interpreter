@@ -34,7 +34,17 @@ class CSVDialect(Enum):
 
 
 class CanTraceEntry():
-    HEADER = ['Message Number', 'Time [ms]', 'ID', 'DLC', 'Data Bytes', 'CANopen', 'Node', 'Index', 'Subindex', 'Interpretation']
+    HEADER = [
+        'Message Number', 
+        'Time [ms]', 
+        'ID', 
+        'DLC', 
+        'Data Bytes', 
+        'CANopen', 
+        'Node', 
+        'Index', 
+        'Subindex', 
+        'Interpretation']
 
     '''
     > number : number of message
@@ -63,7 +73,13 @@ class CanTraceEntry():
     
     @property
     def canOpen(self) -> CanOpenMessage:
-        return CanOpenMessage( self.number, self.milliseconds, self.canId, self.dlc, self.data )
+        return CanOpenMessage( 
+            self.number, 
+            self.milliseconds, 
+            self.canId, 
+            self.dlc, 
+            self.data 
+        )
 
 
 class CanTrace():
