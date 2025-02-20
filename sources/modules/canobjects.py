@@ -420,7 +420,7 @@ class SdoMessage():
             else: # 11-bit
                 result = result + f'COB-ID EMCY = {canid:#06x} ({valid})'                
         elif self.index == 0x1015 and self.subindex == 0:
-                inhibitTime = unpack_from( '<L', data )[0]
+                inhibitTime = unpack_from( '<H', data )[0]
                 inhibitTime = (inhibitTime * 100) / 1000
                 result += f'Inhibit time EMCY is set to {inhibitTime} ms'
         elif self.index == 0x1016:
