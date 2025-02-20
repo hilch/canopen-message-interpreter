@@ -27,8 +27,8 @@ Currently supported file formats:
 # Usage
 
 ```
-usage: analyze.py [-h] -s SOURCE [-o OUTPUT] -f {pcan}
-( on Windows: py analyze.py [-h] -s SOURCE [-o OUTPUT] -f {pcan} )
+usage: analyze.py [-h] -s SOURCE [-o OUTPUT]
+( on Windows: py analyze.py [-h] -s SOURCE [-o OUTPUT] )
 
 
 options:
@@ -52,8 +52,11 @@ If paramater is omitted the source file name with appended extension is taken.
 ## Example
 
 ```
-py analyze.py -s sample1.trc -o sample1.csv -f pcan
+py analyze.py -s sample1.trc -o sample1.csv 
 ```
+
+if the script is started without arguments, an interactive dialog opens
+
 
 
 

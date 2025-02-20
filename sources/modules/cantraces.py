@@ -225,13 +225,13 @@ def OpenTraceFile( filename : str ) -> CanTrace:
                 m = k.match(fileHeader)
                 if m:
                     if v == CanTraceType.PCANVIEW_1_1:
-                        print( 'convert from PCAN-View 1.1' )
+                        print( f'convert {filename} from PCAN-View 1.1' )
                         return PCANViewTrace_1_1( filename )
                     elif v == CanTraceType.PCANVIEW_2_1:
-                        print( 'convert from PCAN-View 2.1' )
+                        print( f'convert {filename} from PCAN-View 2.1' )
                         return PCANViewTrace_2_1( filename )
                     elif v == CanTraceType.IXXAT_MINIMON_3:
-                        print( 'convert from IXXAT MiniMon V3' )
+                        print( f'convert {filename} from IXXAT MiniMon V3' )
                         return IXXATTrace( filename )
                 
             print( 'unknown trace file format' )
