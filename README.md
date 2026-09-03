@@ -20,6 +20,7 @@ So this (incomplete and non perfect) tool might help.
 
 Currently supported file formats:
 - PCAN- View 1.1
+- PCAN- View 1.3
 - PCAN- View 2.1
 - IXXAT MiniMon V3
   

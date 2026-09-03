@@ -19,7 +19,7 @@ import argparse
 import sys
 from modules.cantraces import OpenTraceFile
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from pathlib import Path
 
 initial_directory = str(Path.home())
@@ -39,7 +39,10 @@ def show_interactive_window():
             initial_directory = str(Path(file_paths[0]).parent)
             for f in file_paths:
                 trace = OpenTraceFile( f ) 
-                trace.toCSV( f + '.csv' )
+                if trace:
+                    trace.toCSV( f + '.csv' )
+                else:
+                    messagebox.showerror("Error", f"Failed to open trace file: {f}")
 
     # Create the main window
     root = tk.Tk()

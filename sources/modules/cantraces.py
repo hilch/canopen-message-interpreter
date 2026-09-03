@@ -26,8 +26,9 @@ locale.setlocale(locale.LC_ALL, '')
 class CanTraceType(Enum):
     UNKNOWN = 0,
     PCANVIEW_1_1 = 1 # tested PCAN-View Fileversion 1.1
-    PCANVIEW_2_1 = 2 # tested PCAN-View Fileversion 2.1
-    IXXAT_MINIMON_3 = 3 # tested IXXAT MiniMon V3
+    PCANVIEW_1_3 = 2 # tested PCAN-View Fileversion 1.3
+    PCANVIEW_2_1 = 3 # tested PCAN-View Fileversion 2.1
+    IXXAT_MINIMON_3 = 4 # tested IXXAT MiniMon V3
 
 class CSVDialect(Enum):
     EXCEL_DIALECT1 = 1 # delimiter= ';', quotechar="'"
@@ -89,6 +90,10 @@ class CanTrace():
     def __init__(self ):
         self.canTraceType = CanTraceType.UNKNOWN
         self.entries = list()
+        self.count_bit_error = 0
+        self.count_form_error = 0
+        self.count_stuff_error = 0
+        self.count_other_error = 0
 
 
     def toCSV(self, csvfilename, dialect = CSVDialect.EXCEL_DIALECT1 ):
@@ -96,6 +101,9 @@ class CanTrace():
             if dialect == CSVDialect.EXCEL_DIALECT1:
                 writer = csv.writer(f, delimiter= ';', quotechar="'" )
             writer.writerow( CanTraceEntry.HEADER )
+            writer.writerow( ['-1', '', '', '', '', '', '', '', '', 
+                              (f'bit err: {self.count_bit_error}, form_err: {self.count_form_error}, '),
+                              (f'stuff err: {self.count_stuff_error}, other err: {self.count_other_error}')])
             for e in self.entries:
                 interpreted = e.canOpen
                 writer.writerow( [e.number, 
@@ -112,7 +120,7 @@ class CanTrace():
 
 
 class PCANViewTrace_1_1( CanTrace):
-    patternEntry = re.compile(r'\s*(\d+)\x29\s*(\d+\.*\d*)\s*(Rx|Tx)\s*([0-9A-F]+)\s*([0-8])\s*(.*)')
+    patternEntry = re.compile(r'\s*(\d+)\x29\s*(\d+\.*\d*)\s*(Rx|Tx|Error)\s*([0-9A-F]+)\s*([0-8])\s*(.*)')
     patternData = re.compile(r'([0-9A-F]{2})')
 
     '''
@@ -122,7 +130,9 @@ class PCANViewTrace_1_1( CanTrace):
         super().__init__()
         with open(filename, 'r') as f:
             content = f.readlines()
-            for r in content:
+            total_lines = 0
+            for l, r in enumerate(content):
+                total_lines = l
                 matches = __class__.patternEntry.findall(r)
                 if matches:
                     m = matches[0]
@@ -140,7 +150,75 @@ class PCANViewTrace_1_1( CanTrace):
                         data = __class__.patternData.findall(load)
                         data = bytes(int(d,16) for d in data)
 
-                    self.entries.append( CanTraceEntry( number = n, milliseconds = ms, canId = id, dlc = dlc, data = data ) )
+                    if rxtx == 'Rx' or rxtx == 'Tx':
+                        self.entries.append( CanTraceEntry( number = n, milliseconds = ms, canId = id, dlc = dlc, data = data ) )
+                    elif rxtx == 'Error':
+                        self.ErrorFrameEntry( number = n, milliseconds = ms, id = id, data = data)
+
+    def ErrorFrameEntry( self, number, milliseconds, id, data ):
+        '''
+        Error Frames
+        https://docs.peak-system.com/API/PCAN-Basic.Net/html/68cca14e-9706-4178-a468-6e18e422e677.htm
+        '''
+        if id == 1:
+            self.count_bit_error = self.count_bit_error + 1
+        elif id == 2:
+            self.count_form_error = self.count_form_error + 1
+        elif id == 4:
+            self.count_stuff_error = self.count_stuff_error + 1
+        elif id == 8:
+            self.count_other_error = self.count_other_error + 1
+
+
+class PCANViewTrace_1_3( CanTrace):
+    patternEntry = re.compile(r'\s*(\d+)\)\s*(\d+\.?\d*)\s+(\d+)\s+(Rx|Tx|Error)\s+([0-9A-Fa-f]+)\s*-?\s*(\d+)\s*(.*)')
+    patternData = re.compile(r'([0-9A-F]{2})')
+
+    '''
+    > filename: trace file name (*.trc)
+    '''
+    def __init__(self, filename ): 
+        super().__init__()
+        with open(filename, 'r') as f:
+            content = f.readlines()
+            total_lines = 0
+            for l, r in enumerate(content):
+                total_lines = l
+                matches = __class__.patternEntry.findall(r)
+                if matches:
+                    m = matches[0]
+                    n = int(m[0]) # message number
+                    ms = float(m[1]) # milliseconds
+                    rxtx = m[3]
+                    id = int(m[4],16) # CAN id
+                    dlc = int(m[5]) # DLC
+                    load : str = m[6] # data load                        
+                    data = bytes()
+
+                    if load.startswith('RTR') :
+                        data = None
+                    else:
+                        data = __class__.patternData.findall(load)
+                        data = bytes(int(d,16) for d in data)
+
+                    if rxtx == 'Rx' or rxtx == 'Tx':
+                        self.entries.append( CanTraceEntry( number = n, milliseconds = ms, canId = id, dlc = dlc, data = data ) )
+                    elif rxtx == 'Error':
+                        self.ErrorFrameEntry( number = n, milliseconds = ms, id = id, data = data)
+
+    def ErrorFrameEntry( self, number, milliseconds, id, data ):
+        '''
+        Error Frames
+        https://docs.peak-system.com/API/PCAN-Basic.Net/html/68cca14e-9706-4178-a468-6e18e422e677.htm
+        '''
+        if id == 1:
+            self.count_bit_error = self.count_bit_error + 1
+        elif id == 2:
+            self.count_form_error = self.count_form_error + 1
+        elif id == 4:
+            self.count_stuff_error = self.count_stuff_error + 1
+        elif id == 8:
+            self.count_other_error = self.count_other_error + 1
 
 
 
@@ -225,6 +303,7 @@ def OpenTraceFile( filename : str ) -> CanTrace:
 
     headers = {
         re.compile(r";\$FILEVERSION=1\.1[\s\S]*\$STARTTIME[\s\S]*Generated by"): CanTraceType.PCANVIEW_1_1,
+        re.compile(r";\$FILEVERSION=1\.3[\s\S]*\$STARTTIME[\s\S]*Generated by"): CanTraceType.PCANVIEW_1_3,        
         re.compile(r";\$FILEVERSION=2\.1[\s\S]*\$STARTTIME[\s\S]*\$COLUMNS[\s\S]*Generated by") : CanTraceType.PCANVIEW_2_1,
         re.compile(r"ASCII Trace IXXAT MiniMon V3\s*Version:") : CanTraceType.IXXAT_MINIMON_3
     }    
@@ -243,6 +322,9 @@ def OpenTraceFile( filename : str ) -> CanTrace:
                     if v == CanTraceType.PCANVIEW_1_1:
                         print( f'convert {filename} from PCAN-View 1.1' )
                         return PCANViewTrace_1_1( filename )
+                    elif v == CanTraceType.PCANVIEW_1_3:
+                        print( f'convert {filename} from PCAN-View 1.3' )
+                        return PCANViewTrace_1_3( filename )                    
                     elif v == CanTraceType.PCANVIEW_2_1:
                         print( f'convert {filename} from PCAN-View 2.1' )
                         return PCANViewTrace_2_1( filename )
